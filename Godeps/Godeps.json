@@ -1,0 +1,10 @@
+{
+	"ImportPath": "github.com/ericchiang/acme",
+	"GoVersion": "go1.5.1",
+	"Deps": [
+		{
+			"ImportPath": "github.com/square/go-jose",
+			"Rev": "4ddd71883fa547d37fbf598071f04512d8bafee3"
+		}
+	]
+}
