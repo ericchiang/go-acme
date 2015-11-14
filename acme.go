@@ -85,11 +85,14 @@ func newDefaultDirectory(baseURL *url.URL) directory {
 	}
 }
 
+// Client is a client for a single ACME server.
 type Client struct {
 	// PollInterval determines how quickly the client will
 	// request updates on a challenge from the ACME server.
 	// If unspecified, it defaults to 500 milliseconds.
 	PollInterval time.Duration
+	// Amount of time after the client notifies the server a challenge is
+	// ready, and when it will stop checking for updates.
 	// If unspecified, it defaults to 30 seconds.
 	PollTimeout time.Duration
 
@@ -158,11 +161,14 @@ func NewClient(directoryURL string) (*Client, error) {
 	return c, nil
 }
 
+// UpdateRegistration sends the updated registration object to the server.
 func (c *Client) UpdateRegistration(accountKey interface{}, reg Registration) (Registration, error) {
 	url := c.resources.Registration + strconv.Itoa(reg.Id)
 	return c.registration(accountKey, reg, resourceRegistration, url)
 }
 
+// NewRegistration registers a key pair with the ACME server.
+// If the key pair is already registered, the registration object is recovered.
 func (c *Client) NewRegistration(accountKey interface{}) (reg Registration, err error) {
 	reg, err = c.registration(accountKey, Registration{}, resourceNewRegistration, c.resources.NewRegistration)
 	if err != nil || reg.Agreement == c.Terms() {
@@ -210,6 +216,12 @@ func (c *Client) registration(accountKey interface{}, reg Registration, resource
 	return updatedReg, nil
 }
 
+// NewAuthorization requests a set of challenges from the server to prove
+// ownership of a given resource.
+// Only known type is 'dns'.
+//
+// NOTE: Currently the only way to recover an authorization object is with
+// the returned authorization URL.
 func (c *Client) NewAuthorization(accountKey interface{}, typ, val string) (auth Authorization, authURL string, err error) {
 	type Identifier struct {
 		Type  string `json:"type"`
@@ -243,6 +255,8 @@ func (c *Client) NewAuthorization(accountKey interface{}, typ, val string) (auth
 	return auth, resp.Header.Get("Location"), nil
 }
 
+// Authorization returns the authorization object associated with
+// the given authorization URI.
 func (c *Client) Authorization(authURI string) (Authorization, error) {
 	var auth Authorization
 	resp, err := c.client.Get(authURI)
@@ -264,6 +278,8 @@ func (c *Client) Authorization(authURI string) (Authorization, error) {
 	return auth, nil
 }
 
+// Challenge returns the challenge object associated with the
+// given challenge URI.
 func (c *Client) Challenge(chalURI string) (Challenge, error) {
 	var chal Challenge
 	resp, err := c.client.Get(chalURI)
@@ -285,6 +301,9 @@ func (c *Client) Challenge(chalURI string) (Challenge, error) {
 	return chal, nil
 }
 
+// NewCertificate requests a certificate from the ACME server.
+//
+// csr must have already been signed by a private key.
 func (c *Client) NewCertificate(accountKey interface{}, csr *x509.CertificateRequest) (*x509.Certificate, error) {
 	if csr == nil || csr.Raw == nil {
 		return nil, errors.New("invalid certificate request object")
@@ -313,6 +332,7 @@ func (c *Client) NewCertificate(accountKey interface{}, csr *x509.CertificateReq
 	return x509.ParseCertificate(body)
 }
 
+// TODO: doesn't need to be a function on the client struct
 func (c *Client) signObject(accountKey interface{}, v interface{}) (string, error) {
 	var (
 		signer jose.Signer

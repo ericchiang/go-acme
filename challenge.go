@@ -27,6 +27,8 @@ const (
 	ChallengeTLSSNI = "tls-sni-01"
 )
 
+// HTTP returns a URL path and HTTP response body that the ACME server will
+// check when verifying the challenge.
 func (chal Challenge) HTTP(accountKey interface{}) (urlPath, resource string, err error) {
 	if chal.Type != "http-01" {
 		return "", "", fmt.Errorf("challenge type is %s not %s", chal.Type, "http-01")
@@ -37,6 +39,9 @@ func (chal Challenge) HTTP(accountKey interface{}) (urlPath, resource string, er
 	return
 }
 
+// TLSSNI returns TLS certificates for a set of server names.
+// The ACME server will make a TLS Server Name Indication handshake with the
+// given domain. The domain must present the returned certifiate for each name.
 func (chal Challenge) TLSSNI(accountKey interface{}) (map[string]*tls.Certificate, error) {
 	if chal.Type != "tls-sni-01" {
 		return nil, fmt.Errorf("challenge type is %s not %s", chal.Type, "tls-sni-01")
@@ -97,10 +102,12 @@ func (chal Challenge) TLSSNI(accountKey interface{}) (map[string]*tls.Certificat
 	return certs, nil
 }
 
+// Not yet implemented
 func (chal Challenge) DNS(accountKey interface{}) (domain, txt string, err error) {
 	return "", "", errors.New("dns challenges not implemented")
 }
 
+// Not yet implemented
 func (chal Challenge) ProofOfPossession(accountKey, certKey interface{}) (Challenge, error) {
 	return Challenge{}, errors.New("proof of possession not implemented")
 }

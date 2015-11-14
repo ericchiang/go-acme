@@ -12,6 +12,7 @@ const (
 	StatusValid   = "valid"
 )
 
+// Challenge represents a server challenge for a given domain name.
 type Challenge struct {
 	ID        int64     `json:"id,omitempty"`
 	Type      string    `json:"type"`
@@ -35,6 +36,8 @@ type JWSValidation struct {
 	Signature string           `json:"signature,omitempty"`
 }
 
+// Authorization represents a set of challenges issued by the server
+// for the given identifier.
 type Authorization struct {
 	Identifier struct {
 		Type  string `json:"type"`
@@ -47,6 +50,8 @@ type Authorization struct {
 	Combs      [][]int     `json:"combinations,omitempty"`
 }
 
+// Combinations returns the set of challenges which the client supports.
+// Completing one of these sets is enough to prove ownership of an identifier.
 func (a Authorization) Combinations(supportedChallenges ...string) [][]Challenge {
 	supported := func(chal Challenge) bool {
 		for _, c := range supportedChallenges {
@@ -76,6 +81,7 @@ func (a Authorization) Combinations(supportedChallenges ...string) [][]Challenge
 	return chals
 }
 
+// Registration holds account information for a given key pair.
 type Registration struct {
 	PublicKey      *jose.JsonWebKey `json:"key,omitempty"`
 	Contact        []string         `json:"contact,omitempty"`
