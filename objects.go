@@ -26,7 +26,7 @@ type Challenge struct {
 	N                int              `json:"n,omitempty"`
 	Certs            []string         `json:"certs,omitempty"`
 	AccountKey       *jose.JsonWebKey `json:"accountKey,omitempty"`
-	Authorization    *JWSValidation   `json:"authorization"`
+	Authorization    *JWSValidation   `json:"authorization,omitempty"`
 }
 
 type JWSValidation struct {
