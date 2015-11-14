@@ -74,7 +74,7 @@ func main() {
 }
 
 func newCSR() (*x509.CertificateRequest, *rsa.PrivateKey, error) {
-    certKey, err := rsa.GenerateKey(rand.Random, 4098)
+    certKey, err := rsa.GenerateKey(rand.Random, 4096)
     if err != nil {
         return nil, nil, err
     }
