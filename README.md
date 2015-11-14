@@ -4,11 +4,13 @@
 
 ## About
 
-This is a client package for Let's Encrypt. It currently tests against Let's Encrypt's [boulder](https://github.com/letsencrypt/boulder) implementation.
+This is a client package for Let's Encrypt.
 
 Rather than being a "one click TLS" service like Let's Encrypt's [command line tool](https://github.com/letsencrypt/letsencrypt), this package exposes the functionality defined by the ACME spec. It is up to the user to determine which challenges they support and how they wish to complete them.
 
 Since the [ACME spec](https://github.com/ietf-wg-acme/acme) is still a draft and Let's Encrypt has yet to enter public beta, this package should be regarded as experimental (though it should still work!).
+
+Read more about the package [in this blog post](https://ericchiang.github.io/go/tls/lets/encrypt/letsencrypt/2015/11/13/a-letsencrypt-client-for-go.html).
 
 ## Example usage
 
