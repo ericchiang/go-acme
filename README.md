@@ -134,9 +134,9 @@ if err := cli.ChallengeReady(accountKey, chal); err != nil {
 // The challenge has been verified!
 ```
 
-### TLSSNI
+### TLS SNI
 
-TLSSNI challenges (`tls-sni-01`) require responding to a given [TLS Server Name Indication](https://en.wikipedia.org/wiki/Server_Name_Indication) request with a specific certificate. These server names will not be for the actual domain begin validated, so the challenge can be completed without certificate errors for users.
+TLS SNI challenges (`tls-sni-01`) require responding to a given [TLS Server Name Indication](https://en.wikipedia.org/wiki/Server_Name_Indication) request with a specific certificate. These server names will not be for the actual domain begin validated, so the challenge can be completed without certificate errors for users.
 
 ```go
 chal := chals[0]
