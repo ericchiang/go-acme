@@ -21,6 +21,9 @@ type nonceRoundTripper struct {
 }
 
 func newNonceRoundTripper(rt http.RoundTripper) *nonceRoundTripper {
+	if rt == nil {
+		rt = http.DefaultTransport
+	}
 	return &nonceRoundTripper{rt: rt, mu: new(sync.Mutex)}
 }
 
@@ -40,11 +43,7 @@ func (nrt *nonceRoundTripper) Nonce() (string, error) {
 }
 
 func (nrt *nonceRoundTripper) RoundTrip(req *http.Request) (resp *http.Response, err error) {
-	if nrt.rt == nil {
-		resp, err = http.DefaultTransport.RoundTrip(req)
-	} else {
-		resp, err = nrt.rt.RoundTrip(req)
-	}
+	resp, err = nrt.rt.RoundTrip(req)
 	if err != nil {
 		return
 	}
@@ -59,5 +58,6 @@ func (nrt *nonceRoundTripper) RoundTrip(req *http.Request) (resp *http.Response,
 	if len(nrt.nonces) < 2048 {
 		nrt.nonces = append(nrt.nonces, tok)
 	}
+
 	return
 }
