@@ -1,5 +1,5 @@
 {
-	"ImportPath": "github.com/ericchiang/acme",
+	"ImportPath": "github.com/ericchiang/letsencrypt",
 	"GoVersion": "go1.5.1",
 	"Deps": [
 		{
