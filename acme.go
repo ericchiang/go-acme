@@ -229,7 +229,7 @@ func (c *Client) NewAuthorization(accountKey interface{}, typ, val string) (auth
 	}
 	payload, err := c.signObject(accountKey, &data)
 	if err != nil {
-		return auth, "", nil
+		return auth, "", err
 	}
 	resp, err := c.client.Post(c.resources.NewAuthorization, jwsContentType, strings.NewReader(payload))
 	if err != nil {
