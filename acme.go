@@ -140,12 +140,8 @@ func NewClient(directoryURL string) (*Client, error) {
 		return nil, err
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("read body: %v", err)
-	}
-	if err := json.Unmarshal(body, &c.resources); err != nil {
-		return nil, fmt.Errorf("could not decode body: %v %s", err, body)
+	if err := json.NewDecoder(resp.Body).Decode(&c.resources); err != nil {
+		return nil, fmt.Errorf("could not decode body: %v %s", err, resp.Body)
 	}
 
 	termsResp, err := c.client.Get(c.resources.Terms)
@@ -204,12 +200,8 @@ func (c *Client) registration(accountKey interface{}, reg Registration, resource
 		return Registration{}, err
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return Registration{}, fmt.Errorf("read response body: %v", err)
-	}
 	var updatedReg Registration
-	if err := json.Unmarshal(body, &updatedReg); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&updatedReg); err != nil {
 		return Registration{}, fmt.Errorf("unmarshalling response body: %v", err)
 	}
 
@@ -231,7 +223,10 @@ func (c *Client) NewAuthorization(accountKey interface{}, typ, val string) (auth
 	data := struct {
 		Resource   string     `json:"resource"`
 		Identifier Identifier `json:"identifier"`
-	}{resourceNewAuthorization, Identifier{typ, val}}
+	}{
+		resourceNewAuthorization,
+		Identifier{typ, val},
+	}
 	payload, err := c.signObject(accountKey, &data)
 	if err != nil {
 		return auth, "", nil
@@ -242,14 +237,10 @@ func (c *Client) NewAuthorization(accountKey interface{}, typ, val string) (auth
 	}
 	defer resp.Body.Close()
 	if err = checkHTTPError(resp, http.StatusCreated); err != nil {
-		return
+		return auth, "", err
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return auth, "", fmt.Errorf("reading response body: %v", err)
-	}
-	if err := json.Unmarshal(body, &auth); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&auth); err != nil {
 		return auth, "", fmt.Errorf("decoding response body: %v", err)
 	}
 	return auth, resp.Header.Get("Location"), nil
@@ -268,11 +259,7 @@ func (c *Client) Authorization(authURI string) (Authorization, error) {
 		return auth, err
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return auth, fmt.Errorf("reading response body: %v", err)
-	}
-	if err := json.Unmarshal(body, &auth); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&auth); err != nil {
 		return auth, fmt.Errorf("decoding response body: %v", err)
 	}
 	return auth, nil
@@ -291,11 +278,7 @@ func (c *Client) Challenge(chalURI string) (Challenge, error) {
 		return chal, err
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return chal, fmt.Errorf("reading response body: %v", err)
-	}
-	if err := json.Unmarshal(body, &chal); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&chal); err != nil {
 		return chal, fmt.Errorf("decoding response body: %v", err)
 	}
 	return chal, nil
@@ -311,7 +294,10 @@ func (c *Client) NewCertificate(accountKey interface{}, csr *x509.CertificateReq
 	payload := struct {
 		Resource string `json:"resource"`
 		CSR      string `json:"csr"`
-	}{resourceNewCertificate, base64.RawURLEncoding.EncodeToString(csr.Raw)}
+	}{
+		resourceNewCertificate,
+		base64.RawURLEncoding.EncodeToString(csr.Raw),
+	}
 	data, err := c.signObject(accountKey, &payload)
 	if err != nil {
 		return nil, err
