@@ -7,7 +7,6 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/pem"
 	"errors"
@@ -18,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ericchiang/letsencrypt/Godeps/_workspace/src/github.com/golang/go/src/encoding/base64"
 	"github.com/ericchiang/letsencrypt/Godeps/_workspace/src/github.com/square/go-jose"
 )
 

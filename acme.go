@@ -4,7 +4,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/rsa"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ericchiang/letsencrypt/Godeps/_workspace/src/github.com/golang/go/src/encoding/base64"
 	"github.com/ericchiang/letsencrypt/Godeps/_workspace/src/github.com/square/go-jose"
 )
 
