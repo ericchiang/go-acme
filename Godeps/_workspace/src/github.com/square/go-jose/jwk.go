@@ -30,10 +30,12 @@ import (
 
 // rawJsonWebKey represents a public or private key in JWK format, used for parsing/serializing.
 type rawJsonWebKey struct {
+	Use string      `json:"use,omitempty"`
 	Kty string      `json:"kty,omitempty"`
 	Kid string      `json:"kid,omitempty"`
 	Crv string      `json:"crv,omitempty"`
 	Alg string      `json:"alg,omitempty"`
+	K   *byteBuffer `json:"k,omitempty"`
 	X   *byteBuffer `json:"x,omitempty"`
 	Y   *byteBuffer `json:"y,omitempty"`
 	N   *byteBuffer `json:"n,omitempty"`
@@ -55,6 +57,7 @@ type JsonWebKey struct {
 	Key       interface{}
 	KeyID     string
 	Algorithm string
+	Use       string
 }
 
 // MarshalJSON serializes the given key to its JSON representation.
@@ -71,6 +74,8 @@ func (k JsonWebKey) MarshalJSON() ([]byte, error) {
 		raw, err = fromEcPrivateKey(key)
 	case *rsa.PrivateKey:
 		raw, err = fromRsaPrivateKey(key)
+	case []byte:
+		raw, err = fromSymmetricKey(key)
 	default:
 		return nil, fmt.Errorf("square/go-jose: unknown key type '%s'", reflect.TypeOf(key))
 	}
@@ -81,6 +86,7 @@ func (k JsonWebKey) MarshalJSON() ([]byte, error) {
 
 	raw.Kid = k.KeyID
 	raw.Alg = k.Algorithm
+	raw.Use = k.Use
 
 	return json.Marshal(raw)
 }
@@ -107,12 +113,14 @@ func (k *JsonWebKey) UnmarshalJSON(data []byte) (err error) {
 		} else {
 			key, err = raw.rsaPublicKey()
 		}
+	case "oct":
+		key, err = raw.symmetricKey()
 	default:
 		err = fmt.Errorf("square/go-jose: unkown json web key type '%s'", raw.Kty)
 	}
 
 	if err == nil {
-		*k = JsonWebKey{Key: key, KeyID: raw.Kid, Algorithm: raw.Alg}
+		*k = JsonWebKey{Key: key, KeyID: raw.Kid, Algorithm: raw.Alg, Use: raw.Use}
 	}
 	return
 }
@@ -356,4 +364,18 @@ func fromEcPrivateKey(ec *ecdsa.PrivateKey) (*rawJsonWebKey, error) {
 	raw.D = newBuffer(ec.D.Bytes())
 
 	return raw, nil
+}
+
+func fromSymmetricKey(key []byte) (*rawJsonWebKey, error) {
+	return &rawJsonWebKey{
+		Kty: "oct",
+		K:   newBuffer(key),
+	}, nil
+}
+
+func (key rawJsonWebKey) symmetricKey() ([]byte, error) {
+	if key.K == nil {
+		return nil, fmt.Errorf("square/go-jose: invalid OCT (symmetric) key, missing k value")
+	}
+	return key.K.bytes(), nil
 }
