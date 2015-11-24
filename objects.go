@@ -67,7 +67,7 @@ func (a Authorization) Combinations(supportedChallenges ...string) [][]Challenge
 		chalList := make([]Challenge, len(comb))
 		sup := true
 		for i, idx := range comb {
-			if idx > 0 && len(a.Challenges) > idx && supported(a.Challenges[idx]) {
+			if idx >= 0 && len(a.Challenges) > idx && supported(a.Challenges[idx]) {
 				chalList[i] = a.Challenges[idx]
 			} else {
 				sup = false
