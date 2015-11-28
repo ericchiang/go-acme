@@ -3,11 +3,6 @@
 	"GoVersion": "go1.5.1",
 	"Deps": [
 		{
-			"ImportPath": "github.com/golang/go/src/encoding/base64",
-			"Comment": "go1.5.1",
-			"Rev": "f2e4c8b5fb3660d793b2c545ef207153db0a34b1"
-		},
-		{
 			"ImportPath": "github.com/square/go-jose",
 			"Rev": "37934a899dd03635373fd1e143936d32cfe48d31"
 		}
