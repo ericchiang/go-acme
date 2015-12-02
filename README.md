@@ -27,7 +27,7 @@ import (
     "github.com/ericchiang/letsencrypt"
 )
 
-var supportedChallengs = []string{
+var supportedChallenges = []string{
     letsencrypt.ChallengeHTTP,
     letsencrypt.ChallengeTLSSNI,
 }
@@ -72,11 +72,24 @@ func main() {
     if err != nil {
         log.Fatal(err)
     }
-    // We've got a certificate. Let's Encrypt!
+
+    if cert.Certificate != nil {
+        // We've got a certificate. Let's Encrypt!
+
+        // cert.Certificate holds the x509 Certificate
+
+        // To bundle with the issuer certificate and get PEM encoded []byte:
+        bundledPEM, err := cert.Bundle()
+    }
+
+    // Need to try later. Wait n seconds as provided in cert.RetryAfter, then...
+    if err := cert.Retry(); err == nil {
+        // Certificate is now available in cert.Certificate
+    }
 }
 
 func newCSR() (*x509.CertificateRequest, *rsa.PrivateKey, error) {
-    certKey, err := rsa.GenerateKey(rand.Random, 4096)
+    certKey, err := rsa.GenerateKey(rand.Reader, 4096)
     if err != nil {
         return nil, nil, err
     }
