@@ -287,7 +287,7 @@ func (c *Client) Challenge(chalURI string) (Challenge, error) {
 // NewCertificate requests a certificate from the ACME server.
 //
 // csr must have already been signed by a private key.
-func (c *Client) NewCertificate(accountKey interface{}, csr *x509.CertificateRequest) (*x509.Certificate, error) {
+func (c *Client) NewCertificate(accountKey interface{}, csr *x509.CertificateRequest) (*Certificate, error) {
 	if csr == nil || csr.Raw == nil {
 		return nil, errors.New("invalid certificate request object")
 	}
@@ -308,14 +308,42 @@ func (c *Client) NewCertificate(accountKey interface{}, csr *x509.CertificateReq
 		return nil, err
 	}
 	defer resp.Body.Close()
+
 	if err := checkHTTPError(resp, http.StatusCreated); err != nil {
 		return nil, err
 	}
+
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("read response body: %v", err)
+		return nil, fmt.Errorf("read response body: %s", err)
 	}
-	return x509.ParseCertificate(body)
+
+	// Certificate is not yet available. Gather data and retry later
+	if len(body) == 0 {
+		retryAfter, err := strconv.Atoi(resp.Header.Get("Retry-After"))
+		if err != nil {
+			return nil, fmt.Errorf("Error parsing retry-after header: %s", err)
+		}
+
+		return &CertificateResponse{
+			RetryAfter: retryAfter,
+			URI:        resp.Header.Get("Location"),
+		}, nil
+	}
+
+	// Certificate was available in response body
+	x509Cert, err := x509.ParseCertificate(body)
+	if err != nil {
+		return nil, fmt.Errorf("Error parsing x509 certificate: %s", err)
+	}
+
+	links := parseLinks(resp.Header["Link"])
+	return &CertificateResponse{
+		Certificate: x509Cert,
+		URI:         resp.Header.get("Location"),
+		StableURI:   resp.Header.get("Content-Location"),
+		Issuer:      links["up"],
+	}, nil
 }
 
 // TODO: doesn't need to be a function on the client struct
@@ -345,15 +373,21 @@ func (c *Client) signObject(accountKey interface{}, v interface{}) (string, erro
 	return sig.FullSerialize(), nil
 }
 
-var linkRegexp = regexp.MustCompile(`<([^>]+)>\s*;\s*rel\s*=\s*"([A-Za-z0-9\-_]+)"`)
+var aBrkt = regexp.MustCompile("[<>]")
+var slver = regexp.MustCompile("(.+) *= *\"(.+)\"")
 
-func parseLink(link string) (url, rel string, err error) {
-	match := linkRegexp.FindStringSubmatch(link)
-	if match == nil || len(match) != 3 {
-		err = fmt.Errorf("invalid link: %s", link)
-	} else {
-		url = match[1]
-		rel = match[2]
+func parseLinks(links []string) map[string]string {
+	linkMap := make(map[string]string)
+
+	for _, link := range links {
+		link = aBrkt.ReplaceAllString(link, "")
+		parts := strings.Split(link, ";")
+
+		matches := slver.FindStringSubmatch(parts[1])
+		if len(matches) > 0 {
+			linkMap[matches[2]] = parts[0]
+		}
 	}
-	return
+
+	return linkMap
 }
