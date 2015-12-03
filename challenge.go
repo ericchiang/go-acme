@@ -42,7 +42,7 @@ func (chal Challenge) HTTP(accountKey interface{}) (urlPath, resource string, er
 
 // TLSSNI returns TLS certificates for a set of server names.
 // The ACME server will make a TLS Server Name Indication handshake with the
-// given domain. The domain must present the returned certifiate for each name.
+// given domain. The domain must present the returned certificate for each name.
 func (chal Challenge) TLSSNI(accountKey interface{}) (map[string]*tls.Certificate, error) {
 	if chal.Type != "tls-sni-01" {
 		return nil, fmt.Errorf("challenge type is %s not %s", chal.Type, "tls-sni-01")

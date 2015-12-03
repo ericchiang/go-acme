@@ -313,10 +313,41 @@ func (c *Client) NewCertificate(accountKey interface{}, csr *x509.CertificateReq
 		return nil, err
 	}
 
+	return handleCertificateResponse(resp)
+}
+
+// RenewCertificate attempts to renew an existing certificate. If it fails, you
+// may need to start the flow for a new certificate.
+// LetsEncrypt may return the same certificate. You should load your
+// current x509.Certificate and use the Equal method to compare to the "new"
+// certificate. If it's identical, you'll need to start a new certificate flow.
+func (c *Client) RenewCertificate(certURI string) (*CertificateResponse, error) {
+	resp, err := http.Get(certURI)
+	if err != nil {
+		return nil, fmt.Errorf("renew certificate http error: %s", err)
+	}
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
+		return nil, errors.New("certificate not available. Start a new certificate flow")
+	}
+
+	certResp, err := handleCertificateResponse(resp)
+	if err == nil {
+		if certResp.URI == "" {
+			certResp.URI = certURI
+		}
+	}
+
+	return certResp, err
+}
+
+func handleCertificateResponse(resp *http.Response) (*CertificateResponse, error) {
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("read response body: %s", err)
 	}
+
+	defer resp.Body.Close()
 
 	// Certificate is not yet available. Gather data and retry later
 	if len(body) == 0 {

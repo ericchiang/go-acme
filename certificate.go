@@ -47,7 +47,12 @@ func (c *CertificateResponse) Bundle() (bundledPEM []byte, err error) {
 }
 
 // Retry request retries the certificate if it was unavailable when calling
-// NewCertificate.
+// NewCertificate or RenewCertificate.
+//
+// Note: If you are renewing a certificate, LetsEncrypt may return the same
+// certificate. You should load your current x509.Certificate and use the
+// Equal method to compare to the "new" certificate. If it's identical,
+// you'll need to start a new certificate flow.
 func (c *CertificateResponse) Retry() error {
 	if c.Certificate != nil {
 		return errors.New("Aborting retry request. Certificate is already available")
