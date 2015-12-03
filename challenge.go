@@ -168,7 +168,7 @@ func (c *Client) ChallengeReady(accountKey interface{}, chal Challenge) error {
 		case StatusPending, "":
 			time.Sleep(pollInterval)
 		case StatusInvalid:
-			if err.Error == nil {
+			if chal.Error == nil {
 				return errors.New("challenge returned status 'invalid' without explicit error")
 			}
 			return chal.Error
