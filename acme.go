@@ -287,7 +287,7 @@ func (c *Client) Challenge(chalURI string) (Challenge, error) {
 // NewCertificate requests a certificate from the ACME server.
 //
 // csr must have already been signed by a private key.
-func (c *Client) NewCertificate(accountKey interface{}, csr *x509.CertificateRequest) (*Certificate, error) {
+func (c *Client) NewCertificate(accountKey interface{}, csr *x509.CertificateRequest) (*CertificateResponse, error) {
 	if csr == nil || csr.Raw == nil {
 		return nil, errors.New("invalid certificate request object")
 	}
@@ -340,8 +340,8 @@ func (c *Client) NewCertificate(accountKey interface{}, csr *x509.CertificateReq
 	links := parseLinks(resp.Header["Link"])
 	return &CertificateResponse{
 		Certificate: x509Cert,
-		URI:         resp.Header.get("Location"),
-		StableURI:   resp.Header.get("Content-Location"),
+		URI:         resp.Header.Get("Location"),
+		StableURI:   resp.Header.Get("Content-Location"),
 		Issuer:      links["up"],
 	}, nil
 }

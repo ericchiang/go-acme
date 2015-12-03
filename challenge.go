@@ -21,6 +21,7 @@ import (
 	"github.com/ericchiang/letsencrypt/internal/base64"
 )
 
+// Challenge constants.
 const (
 	ChallengeDNS    = "dns-01"
 	ChallengeHTTP   = "http-01"
@@ -102,12 +103,12 @@ func (chal Challenge) TLSSNI(accountKey interface{}) (map[string]*tls.Certificat
 	return certs, nil
 }
 
-// Not yet implemented
+// DNS ... Not yet implemented
 func (chal Challenge) DNS(accountKey interface{}) (domain, txt string, err error) {
 	return "", "", errors.New("dns challenges not implemented")
 }
 
-// Not yet implemented
+// ProofOfPossession ... Not yet implemented
 func (chal Challenge) ProofOfPossession(accountKey, certKey interface{}) (Challenge, error) {
 	return Challenge{}, errors.New("proof of possession not implemented")
 }

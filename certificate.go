@@ -22,22 +22,22 @@ type CertificateResponse struct {
 // Bundle bundles the certificate with the issuer certificate.
 func (c *CertificateResponse) Bundle() (bundledPEM []byte, err error) {
 	if c.Certificate == nil {
-		return errors.New("Cannot bundle without certificate")
+		return nil, errors.New("Cannot bundle without certificate")
 	}
 
 	if c.Issuer == "" {
-		return errors.New("Could not bundle certificates. Issuer not found")
+		return nil, errors.New("Could not bundle certificates. Issuer not found")
 	}
 
 	resp, err := http.Get(c.Issuer)
 	if err != nil {
-		t.Errorf("Error requesting issuer certificate: %s", err)
+		return nil, fmt.Errorf("Error requesting issuer certificate: %s", err)
 	}
 
 	defer resp.Body.Close()
 	issuerDER, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		t.Errorf("Error reading issuer certificate: %s", err)
+		return nil, fmt.Errorf("Error reading issuer certificate: %s", err)
 	}
 
 	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: c.Certificate.Raw})
@@ -59,13 +59,13 @@ func (c *CertificateResponse) Retry() error {
 
 	resp, err := http.Get(c.URI)
 	if err != nil {
-		t.Errorf("Error retrying certificate request: %s", err)
+		return fmt.Errorf("Error retrying certificate request: %s", err)
 	}
 
 	defer resp.Body.Close()
 
 	// Certificate is available
-	if resp.statusCode == http.StatusOK {
+	if resp.StatusCode == http.StatusOK {
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			return fmt.Errorf("read response body: %s", err)
@@ -100,4 +100,6 @@ func (c *CertificateResponse) Retry() error {
 
 		return nil
 	}
+
+	return fmt.Errorf("Retry expected status code of %d or %d, given %d", http.StatusOK, http.StatusAccepted, resp.StatusCode)
 }
