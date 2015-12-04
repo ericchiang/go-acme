@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 // CertificateResponse holds response items after requesting a Certificate.
@@ -107,4 +108,31 @@ func (c *CertificateResponse) Retry() error {
 	}
 
 	return fmt.Errorf("Retry expected status code of %d or %d, given %d", http.StatusOK, http.StatusAccepted, resp.StatusCode)
+}
+
+// RetryPoll will attempt to retrieve asynchronous certificates maxRetries times
+// and sleep for RetryAfter seconds between requests.
+// This method will not make the initial request until the initial
+// RetryAfter period elapses.
+func (c *CertificateResponse) RetryPoll(maxRetries int) error {
+	time.Sleep(time.Duration(c.RetryAfter) * time.Second)
+
+	retries := 0
+	for {
+		if retries >= maxRetries {
+			return fmt.Errorf("max retries of %d", maxRetries)
+		}
+
+		if err := c.Retry(); err != nil {
+			return err
+		}
+
+		// Certificate was returned.
+		if c.Certificate != nil {
+			return nil
+		}
+
+		retries++
+		time.Sleep(time.Duration(c.RetryAfter) * time.Second)
+	}
 }
