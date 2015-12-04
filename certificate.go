@@ -22,7 +22,7 @@ type CertificateResponse struct {
 
 // Bundle bundles the certificate with the issuer certificate.
 func (c *CertificateResponse) Bundle() (bundledPEM []byte, err error) {
-	if c.Certificate == nil {
+	if !c.IsAvailable() {
 		return nil, errors.New("Cannot bundle without certificate")
 	}
 
@@ -55,7 +55,7 @@ func (c *CertificateResponse) Bundle() (bundledPEM []byte, err error) {
 // Equal method to compare to the "new" certificate. If it's identical,
 // you'll need to start a new certificate flow.
 func (c *CertificateResponse) Retry() error {
-	if c.Certificate != nil {
+	if c.IsAvailable() {
 		return errors.New("Aborting retry request. Certificate is already available")
 	}
 
@@ -128,11 +128,17 @@ func (c *CertificateResponse) RetryPoll(maxRetries int) error {
 		}
 
 		// Certificate was returned.
-		if c.Certificate != nil {
+		if c.IsAvailable() {
 			return nil
 		}
 
 		retries++
 		time.Sleep(time.Duration(c.RetryAfter) * time.Second)
 	}
+}
+
+// IsAvailable returns bool true if CertificateResponse has a certificate
+// available. It's a convenience function, but it helps with readability.
+func (c *CertificateResponse) IsAvailable() bool {
+	return c.Certificate != nil
 }

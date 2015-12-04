@@ -184,7 +184,7 @@ func TestNewCertificate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cert, err := cli.NewCertificate(priv, csr)
+	certResp, err := cli.NewCertificate(priv, csr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,46 +196,74 @@ func TestNewCertificate(t *testing.T) {
 		}
 		return false
 	}
-	if !contains(cert.DNSNames, testDomain) {
+	if !contains(certResp.Certificate.DNSNames, testDomain) {
 		t.Errorf("returned cert was not for test domain")
 	}
 
-	certPEM := pemEncode(cert.Raw, "CERTIFICATE")
+	certPEM := pemEncode(certResp.Certificate.Raw, "CERTIFICATE")
 	certKeyPEM := pemEncode(x509.MarshalPKCS1PrivateKey(certKey), "RSA PRIVATE KEY")
 	if _, err := tls.X509KeyPair(certPEM, certKeyPEM); err != nil {
 		t.Errorf("private key did not match returned cert")
 	}
 }
 
-func TestParseLink(t *testing.T) {
+func TestParseLinks(t *testing.T) {
 	tests := []struct {
-		link string
-		ok   bool
-		url  string
-		rel  string
+		header http.Header
+		want   map[string]string
 	}{
-		{`<http://127.0.0.1:4000/acme/new-authz>;rel="next"`, true, "http://127.0.0.1:4000/acme/new-authz", "next"},
-		{`<http://127.0.0.1:4001/terms/v1>;rel="terms-of-service"`, true, "http://127.0.0.1:4001/terms/v1", "terms-of-service"},
-		{`<http://127.0.0.1:4001/terms/v1>; rel="terms-of-service"`, true, "http://127.0.0.1:4001/terms/v1", "terms-of-service"},
+		{
+			header: map[string][]string{
+				"Link": {
+					`<https://example.com/acme/new-authz>;rel="next"`,
+					`<https://example.com/acme/recover-reg>;rel="recover"`,
+					`<https://example.com/acme/terms>;rel="terms-of-service"`,
+				},
+			},
+			want: map[string]string{
+				"next":             "https://example.com/acme/new-authz",
+				"recover":          "https://example.com/acme/recover-reg",
+				"terms-of-service": "https://example.com/acme/terms",
+			},
+		},
+		{
+			header: map[string][]string{
+				"Link": []string{`<https://example.com/acme/new-cert>;rel="next"`},
+			},
+			want: map[string]string{
+				"next": "https://example.com/acme/new-cert",
+			},
+		},
+		{
+			header: map[string][]string{
+				"Link": {
+					`<https://example.com/acme/ca-cert>;rel="up";title="issuer"`,
+					`<https://example.com/acme/revoke-cert>;rel="revoke"`,
+					`<https://example.com/acme/reg/asdf>;rel="author"`,
+				},
+				"Location":         {"https://example.com/acme/cert/asdf"},
+				"Content-Location": {"https://example.com/acme/cert-seq/12345"},
+			},
+			want: map[string]string{
+				"up":     "https://example.com/acme/ca-cert",
+				"revoke": "https://example.com/acme/revoke-cert",
+				"author": "https://example.com/acme/reg/asdf",
+			},
+		},
 	}
-	for _, test := range tests {
-		url, rel, err := parseLink(test.link)
-		if err == nil && !test.ok {
-			t.Errorf("expected link to be bad: %s", test.link)
-			continue
-		}
-		if err != nil && test.ok {
-			t.Errorf("could not parse link: %s", test.link)
-			continue
-		}
-		if err != nil {
-			continue
-		}
-		if test.url != url {
-			t.Errorf("expected link to produce url '%s' got '%s'", test.url, url)
-		}
-		if test.rel != rel {
-			t.Errorf("expected link to produce rel '%s' got '%s'", test.rel, rel)
+
+	for i, test := range tests {
+		links := parseLinks(test.header["Link"])
+
+		for key, want := range test.want {
+			given, ok := links[key]
+			if !ok {
+				t.Errorf("TestParseLinks (%d): want rel of %q to be present", i, key)
+			}
+
+			if given != want {
+				t.Errorf("TestParseLinks (%d): want rel of %q to equal %s, given %s", i, key, want, given)
+			}
 		}
 	}
 }
