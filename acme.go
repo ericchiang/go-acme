@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -287,7 +288,7 @@ func (c *Client) Challenge(chalURI string) (Challenge, error) {
 // NewCertificate requests a certificate from the ACME server.
 //
 // csr must have already been signed by a private key.
-func (c *Client) NewCertificate(accountKey interface{}, csr *x509.CertificateRequest) (*x509.Certificate, error) {
+func (c *Client) NewCertificate(accountKey interface{}, csr *x509.CertificateRequest) (*CertificateResponse, error) {
 	if csr == nil || csr.Raw == nil {
 		return nil, errors.New("invalid certificate request object")
 	}
@@ -308,14 +309,113 @@ func (c *Client) NewCertificate(accountKey interface{}, csr *x509.CertificateReq
 		return nil, err
 	}
 	defer resp.Body.Close()
+
 	if err := checkHTTPError(resp, http.StatusCreated); err != nil {
 		return nil, err
 	}
+
+	return handleCertificateResponse(resp)
+}
+
+// RenewCertificate attempts to renew an existing certificate. If it fails, you
+// may need to start the flow for a new certificate.
+// LetsEncrypt may return the same certificate. You should load your
+// current x509.Certificate and use the Equal method to compare to the "new"
+// certificate. If it's identical, you'll need to start a new certificate flow.
+func (c *Client) RenewCertificate(certURI string) (*CertificateResponse, error) {
+	resp, err := http.Get(certURI)
+	if err != nil {
+		return nil, fmt.Errorf("renew certificate http error: %s", err)
+	}
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
+		return nil, errors.New("certificate not available. Start a new certificate flow")
+	}
+
+	certResp, err := handleCertificateResponse(resp)
+	if err == nil {
+		if certResp.URI == "" {
+			certResp.URI = certURI
+		}
+	}
+
+	return certResp, err
+}
+
+// RevokeCertificate takes a PEM encoded certificate or bundle and
+// attempts to revoke it.
+func (c *Client) RevokeCertificate(accountKey interface{}, pemBytes []byte) error {
+	certificates, err := parsePEMBundle(pemBytes)
+	if err != nil {
+		return err
+	}
+
+	cert := certificates[0]
+	if cert.IsCA {
+		return errors.New("Certificate bundle starts with a CA certificate")
+	}
+
+	// cert.Raw holds DERbytes, which need to be encoded to base64 per acme spec
+	encoded := base64.URLEncoding.EncodeToString(cert.Raw)
+	payload := struct {
+		Resource    string `json:"resource"`
+		Certificate string `json:"certificate"`
+	}{
+		resourceNewRevokeCertificate,
+		encoded,
+	}
+	data, err := c.signObject(accountKey, &payload)
+	if err != nil {
+		return err
+	}
+
+	resp, err := c.client.Post(c.resources.NewRevokeCertificate, jwsContentType, strings.NewReader(data))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if err := checkHTTPError(resp, http.StatusOK); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func handleCertificateResponse(resp *http.Response) (*CertificateResponse, error) {
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("read response body: %v", err)
+		return nil, fmt.Errorf("read response body: %s", err)
 	}
-	return x509.ParseCertificate(body)
+
+	defer resp.Body.Close()
+
+	// Certificate is not yet available. Gather data and retry later
+	if len(body) == 0 {
+		retryAfter, err := strconv.Atoi(resp.Header.Get("Retry-After"))
+		if err != nil {
+			return nil, fmt.Errorf("Error parsing retry-after header: %s", err)
+		}
+
+		return &CertificateResponse{
+			RetryAfter: retryAfter,
+			URI:        resp.Header.Get("Location"),
+		}, nil
+	}
+
+	// Certificate was available in response body
+	x509Cert, err := x509.ParseCertificate(body)
+	if err != nil {
+		return nil, fmt.Errorf("Error parsing x509 certificate: %s", err)
+	}
+
+	links := parseLinks(resp.Header["Link"])
+	return &CertificateResponse{
+		Certificate: x509Cert,
+		URI:         resp.Header.Get("Location"),
+		StableURI:   resp.Header.Get("Content-Location"),
+		Issuer:      links["up"],
+	}, nil
 }
 
 // TODO: doesn't need to be a function on the client struct
@@ -345,15 +445,51 @@ func (c *Client) signObject(accountKey interface{}, v interface{}) (string, erro
 	return sig.FullSerialize(), nil
 }
 
-var linkRegexp = regexp.MustCompile(`<([^>]+)>\s*;\s*rel\s*=\s*"([A-Za-z0-9\-_]+)"`)
+var aBrkt = regexp.MustCompile("[<>]")
+var slver = regexp.MustCompile("(.+) *= *\"(.+)\"")
 
-func parseLink(link string) (url, rel string, err error) {
-	match := linkRegexp.FindStringSubmatch(link)
-	if match == nil || len(match) != 3 {
-		err = fmt.Errorf("invalid link: %s", link)
-	} else {
-		url = match[1]
-		rel = match[2]
+func parseLinks(links []string) map[string]string {
+	linkMap := make(map[string]string)
+
+	for _, link := range links {
+		link = aBrkt.ReplaceAllString(link, "")
+		parts := strings.Split(link, ";")
+
+		matches := slver.FindStringSubmatch(parts[1])
+		if len(matches) > 0 {
+			linkMap[matches[2]] = parts[0]
+		}
 	}
-	return
+
+	return linkMap
+}
+
+// parsePEMBundle parses a certificate bundle from top to bottom and returns
+// a slice of x509 certificates. This function will error if no certificates are found.
+// Credit: github.com/xenolf/lego
+func parsePEMBundle(bundle []byte) ([]*x509.Certificate, error) {
+	var certificates []*x509.Certificate
+
+	remaining := bundle
+	for len(remaining) != 0 {
+		certBlock, rem := pem.Decode(remaining)
+		// Thanks golang for having me do this :[
+		remaining = rem
+		if certBlock == nil {
+			return nil, errors.New("Could not decode certificate.")
+		}
+
+		cert, err := x509.ParseCertificate(certBlock.Bytes)
+		if err != nil {
+			return nil, err
+		}
+
+		certificates = append(certificates, cert)
+	}
+
+	if len(certificates) == 0 {
+		return nil, errors.New("No certificates were found while parsing the bundle.")
+	}
+
+	return certificates, nil
 }
