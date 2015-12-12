@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -341,6 +342,46 @@ func (c *Client) RenewCertificate(certURI string) (*CertificateResponse, error) 
 	return certResp, err
 }
 
+// RevokeCertificate takes a PEM encoded certificate or bundle and
+// attempts to revoke it.
+func (c *Client) RevokeCertificate(accountKey interface{}, pemBytes []byte) error {
+	certificates, err := parsePEMBundle(pemBytes)
+	if err != nil {
+		return err
+	}
+
+	cert := certificates[0]
+	if cert.IsCA {
+		return errors.New("Certificate bundle starts with a CA certificate")
+	}
+
+	// cert.Raw holds DERbytes, which need to be encoded to base64 per acme spec
+	encoded := base64.URLEncoding.EncodeToString(cert.Raw)
+	payload := struct {
+		Resource    string `json:"resource"`
+		Certificate string `json:"certificate"`
+	}{
+		resourceNewRevokeCertificate,
+		encoded,
+	}
+	data, err := c.signObject(accountKey, &payload)
+	if err != nil {
+		return err
+	}
+
+	resp, err := c.client.Post(c.resources.NewRevokeCertificate, jwsContentType, strings.NewReader(data))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if err := checkHTTPError(resp, http.StatusOK); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func handleCertificateResponse(resp *http.Response) (*CertificateResponse, error) {
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -421,4 +462,34 @@ func parseLinks(links []string) map[string]string {
 	}
 
 	return linkMap
+}
+
+// parsePEMBundle parses a certificate bundle from top to bottom and returns
+// a slice of x509 certificates. This function will error if no certificates are found.
+// Credit: github.com/xenolf/lego
+func parsePEMBundle(bundle []byte) ([]*x509.Certificate, error) {
+	var certificates []*x509.Certificate
+
+	remaining := bundle
+	for len(remaining) != 0 {
+		certBlock, rem := pem.Decode(remaining)
+		// Thanks golang for having me do this :[
+		remaining = rem
+		if certBlock == nil {
+			return nil, errors.New("Could not decode certificate.")
+		}
+
+		cert, err := x509.ParseCertificate(certBlock.Bytes)
+		if err != nil {
+			return nil, err
+		}
+
+		certificates = append(certificates, cert)
+	}
+
+	if len(certificates) == 0 {
+		return nil, errors.New("No certificates were found while parsing the bundle.")
+	}
+
+	return certificates, nil
 }
