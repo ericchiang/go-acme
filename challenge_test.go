@@ -1,22 +1,26 @@
 package letsencrypt
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
 // Specified in boulder's configuration
 // See $GOATH/src/github.com/letsencrypt/boulder/test/boulder-config.json
 var (
-	httpPort  int = 5002
-	httpsPort int = 5001
+	httpPort      int    = 5002
+	httpsPort     int    = 5001
+	boulderDNSSrv string = "http://localhost:8055/set-txt"
 )
 
 func TestHTTPChallenge(t *testing.T) {
@@ -143,6 +147,62 @@ func TestTLSSNIChallenge(t *testing.T) {
 			conn.Close()
 		}
 	}()
+
+	if err := cli.ChallengeReady(priv, chal); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDNSChallenge(t *testing.T) {
+	requiresEtcHostsEdits(t)
+
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cli, err := NewClient(testURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cli.NewRegistration(priv); err != nil {
+		t.Fatal(err)
+	}
+	auth, _, err := cli.NewAuthorization(priv, "dns", testDomain)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	chals := auth.Combinations(ChallengeDNS)
+	if len(chals) == 0 || len(chals[0]) != 1 {
+		t.Fatal("no supported challenges")
+	}
+	chal := chals[0][0]
+	subdomain, txt, err := chal.DNS(priv)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	body := struct {
+		Host  string `json:"host"`
+		Value string `json:"value"`
+	}{
+		// end host in a period so its fqdn for dns question
+		Host:  strings.Join([]string{subdomain, testDomain, ""}, "."),
+		Value: txt,
+	}
+	bodyb, err := json.Marshal(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req, err := http.NewRequest("POST", boulderDNSSrv, bytes.NewReader(bodyb))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if err := cli.ChallengeReady(priv, chal); err != nil {
 		t.Fatal(err)

@@ -1,6 +1,6 @@
 {
 	"ImportPath": "github.com/ericchiang/letsencrypt",
-	"GoVersion": "go1.5.1",
+	"GoVersion": "go1.5.3",
 	"Deps": [
 		{
 			"ImportPath": "github.com/square/go-jose",
