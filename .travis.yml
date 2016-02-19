@@ -1,0 +1,44 @@
+language: go
+go:
+  - 1.5
+# we need sudo to add the hosts file definitions
+sudo: required
+script:
+  - go test -race -v -bench=.
+notifications:
+  email: false
+services:
+  - rabbitmq
+addons:
+  apt:
+    packages:
+      - lsb-release
+      - python-dev
+      - python-virtualenv
+      - gcc
+      - libaugeas0
+      - libssl-dev
+      - libffi-dev
+      - ca-certificates
+      - rsyslog
+  mariadb: "10.0"
+before_install:
+  - git clone --depth=1 https://github.com/letsencrypt/boulder.git $HOME/gopath/src/github.com/letsencrypt/boulder
+before_script:
+  - |
+    # make required changes to boulder rules and start boulder
+    # boulder uses GOPATH to install goose so set that to a single value
+    set -e
+    export ORIGGOPATH=$GOPATH
+    export GOPATH=$HOME/gopath
+    cd $GOPATH/src/github.com/letsencrypt/boulder
+    sed '/example.org\|localhost/d' cmd/policy-loader/base-rules.json > cmd/policy-loader/base-rules.json
+    echo "127.0.0.1 example.org example" | sudo tee -a /etc/hosts
+    ./test/setup.sh
+    make
+    ./start.py &
+    BOUDLER_PID=$!
+    export GOPATH=$ORIGGOPATH
+    cd $TRAVIS_BUILD_DIR
+after_script:
+  - kill $BOUDLER_PID
