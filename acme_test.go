@@ -359,8 +359,12 @@ func TestParseLinks(t *testing.T) {
 
 func requiresEtcHostsEdits(t *testing.T) {
 	addrs, err := net.LookupHost(testDomain)
-	if err != nil || len(addrs) != 1 || addrs[0] != "127.0.0.1" {
-		t.Skip("/etc/hosts file not properly configured, skipping test. see README for required edits")
+	if err != nil || len(addrs) == 0 || (addrs[0] != "127.0.0.1" && addrs[0] != "::1") {
+		addr := "NXDOMAIN"
+		if len(addrs) > 0 {
+			addr = addrs[0]
+		}
+		t.Skipf("/etc/hosts file not properly configured, skipping test. see README for required edits. %s resolved to %s", testDomain, addr)
 	}
 	return
 }

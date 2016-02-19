@@ -430,6 +430,9 @@ func (c *Client) signObject(accountKey interface{}, v interface{}) (string, erro
 	default:
 		err = errors.New("acme: unsupported private key type")
 	}
+	if err != nil {
+		return "", err
+	}
 	data, err := json.Marshal(v)
 	if err != nil {
 		return "", err
