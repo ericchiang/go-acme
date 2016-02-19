@@ -1,7 +1,14 @@
 {
-	"ImportPath": "github.com/ericchiang/letsencrypt",
+	"ImportPath": "github.com/levenlabs/letsencrypt",
 	"GoVersion": "go1.5.1",
+	"Packages": [
+		"./..."
+	],
 	"Deps": [
+		{
+			"ImportPath": "github.com/miekg/dns",
+			"Rev": "e0d84d97e59bcb6561eae269c4e94d25b66822cb"
+		},
 		{
 			"ImportPath": "github.com/square/go-jose",
 			"Rev": "37934a899dd03635373fd1e143936d32cfe48d31"

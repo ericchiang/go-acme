@@ -17,6 +17,7 @@
 package jose
 
 import (
+	"github.com/levenlabs/letsencrypt/Godeps/_workspace/src/github.com/square/go-jose/cipher"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/hmac"
@@ -25,7 +26,6 @@ import (
 	"crypto/sha512"
 	"crypto/subtle"
 	"errors"
-	"github.com/ericchiang/letsencrypt/Godeps/_workspace/src/github.com/square/go-jose/cipher"
 	"hash"
 	"io"
 )
