@@ -28,7 +28,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ericchiang/letsencrypt/Godeps/_workspace/src/github.com/square/go-jose/cipher"
+	"github.com/levenlabs/letsencrypt/Godeps/_workspace/src/github.com/square/go-jose/cipher"
 )
 
 // A generic RSA-based encrypter/verifier

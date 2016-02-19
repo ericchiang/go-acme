@@ -21,8 +21,8 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/levenlabs/letsencrypt/Godeps/_workspace/src/github.com/square/go-jose"
 	"github.com/codegangsta/cli"
-	"github.com/ericchiang/letsencrypt/Godeps/_workspace/src/github.com/square/go-jose"
 )
 
 func main() {

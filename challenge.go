@@ -30,8 +30,8 @@ const (
 // HTTP returns a URL path and HTTP response body that the ACME server will
 // check when verifying the challenge.
 func (chal Challenge) HTTP(accountKey interface{}) (urlPath, resource string, err error) {
-	if chal.Type != "http-01" {
-		return "", "", fmt.Errorf("challenge type is %s not %s", chal.Type, "http-01")
+	if chal.Type != ChallengeHTTP {
+		return "", "", fmt.Errorf("challenge type is %s not %s", chal.Type, ChallengeHTTP)
 	}
 
 	urlPath = path.Join("/.well-known/acme-challenge", chal.Token)
@@ -43,8 +43,8 @@ func (chal Challenge) HTTP(accountKey interface{}) (urlPath, resource string, er
 // The ACME server will make a TLS Server Name Indication handshake with the
 // given domain. The domain must present the returned certifiate for each name.
 func (chal Challenge) TLSSNI(accountKey interface{}) (map[string]*tls.Certificate, error) {
-	if chal.Type != "tls-sni-01" {
-		return nil, fmt.Errorf("challenge type is %s not %s", chal.Type, "tls-sni-01")
+	if chal.Type != ChallengeTLSSNI {
+		return nil, fmt.Errorf("challenge type is %s not %s", chal.Type, ChallengeTLSSNI)
 	}
 
 	auth, err := keyAuth(accountKey, chal.Token)
@@ -103,8 +103,18 @@ func (chal Challenge) TLSSNI(accountKey interface{}) (map[string]*tls.Certificat
 }
 
 // Not yet implemented
-func (chal Challenge) DNS(accountKey interface{}) (domain, txt string, err error) {
-	return "", "", errors.New("dns challenges not implemented")
+func (chal Challenge) DNS(accountKey interface{}) (subdomain, txt string, err error) {
+	if chal.Type != ChallengeDNS {
+		return "", "", fmt.Errorf("challenge type is %s not %s", chal.Type, ChallengeDNS)
+	}
+	auth, err := keyAuth(accountKey, chal.Token)
+	if err != nil {
+		return "", "", err
+	}
+	hash := sha256.Sum256([]byte(auth))
+	txt = base64.RawURLEncoding.EncodeToString(hash[:])
+	subdomain = "_acme-challenge"
+	return
 }
 
 // Not yet implemented
@@ -119,7 +129,7 @@ func (chal Challenge) ProofOfPossession(accountKey, certKey interface{}) (Challe
 // result of the status.
 func (c *Client) ChallengeReady(accountKey interface{}, chal Challenge) error {
 	switch chal.Type {
-	case "http-01", "tls-sni-01":
+	case ChallengeHTTP, ChallengeTLSSNI, ChallengeDNS:
 	default:
 		return fmt.Errorf("unsupported challenge type '%s'", chal.Type)
 	}
@@ -158,9 +168,12 @@ func (c *Client) ChallengeReady(accountKey interface{}, chal Challenge) error {
 	start := time.Now()
 	for {
 		if time.Now().Sub(start) > pollTimeout {
+			if chal.Error != nil {
+				return chal.Error
+			}
 			return errors.New("polling pending challenge timed out")
 		}
-		chal, err := c.Challenge(chal.URI)
+		chal, err = c.Challenge(chal.URI)
 		if err != nil {
 			return err
 		}
@@ -170,6 +183,15 @@ func (c *Client) ChallengeReady(accountKey interface{}, chal Challenge) error {
 		case StatusInvalid:
 			if chal.Error == nil {
 				return errors.New("challenge returned status 'invalid' without explicit error")
+			}
+			// if the challenge was DNS, keep trying since the value is cached
+			if chal.Type == ChallengeDNS {
+				// unauthorized is the TXT value is wrong or not found
+				// connection if NXDOMAIN
+				if chal.Error.Typ == "urn:acme:error:unauthorized" || chal.Error.Typ == "urn:acme:error:connection" {
+					time.Sleep(pollInterval)
+					continue
+				}
 			}
 			return chal.Error
 		case StatusValid:

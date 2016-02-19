@@ -10,13 +10,20 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/ericchiang/letsencrypt/Godeps/_workspace/src/github.com/miekg/dns"
+	"strings"
+	"sync"
 )
 
 // Specified in boulder's configuration
 // See $GOATH/src/github.com/letsencrypt/boulder/test/boulder-config.json
 var (
-	httpPort  int = 5002
-	httpsPort int = 5001
+	httpPort        int = 5002
+	httpsPort       int = 5001
+	dnsPort         int = 8053
+	txtRecords          = map[string]string{}
+	txtRecordsMutex     = sync.RWMutex{}
 )
 
 func TestHTTPChallenge(t *testing.T) {
@@ -141,6 +148,89 @@ func TestTLSSNIChallenge(t *testing.T) {
 				t.Errorf("connection is not a tls connection")
 			}
 			conn.Close()
+		}
+	}()
+
+	if err := cli.ChallengeReady(priv, chal); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func dnsHandler(w dns.ResponseWriter, r *dns.Msg) {
+	m := new(dns.Msg)
+	m.SetReply(r)
+	m.Compress = false
+
+	for _, q := range r.Question {
+		if q.Qtype != dns.TypeTXT {
+			continue
+		}
+		txtRecordsMutex.RLock()
+		value, present := txtRecords[q.Name]
+		txtRecordsMutex.RUnlock()
+		if !present {
+			continue
+		}
+		record := new(dns.TXT)
+		record.Hdr = dns.RR_Header{
+			Name:   q.Name,
+			Rrtype: dns.TypeTXT,
+			Class:  dns.ClassINET,
+			Ttl:    0,
+		}
+		record.Txt = []string{value}
+		m.Answer = append(m.Answer, record)
+	}
+	w.WriteMsg(m)
+	return
+}
+
+func TestDNSChallenge(t *testing.T) {
+	requiresEtcHostsEdits(t)
+
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cli, err := NewClient(testURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cli.NewRegistration(priv); err != nil {
+		t.Fatal(err)
+	}
+	auth, _, err := cli.NewAuthorization(priv, "dns", testDomain)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	chals := auth.Combinations(ChallengeDNS)
+	if len(chals) == 0 || len(chals[0]) != 1 {
+		t.Fatal("no supported challenges")
+	}
+	chal := chals[0][0]
+	subdomain, txtval, err := chal.DNS(priv)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	txtRecordsMutex.Lock()
+	// end host in a period so its fqdn for dns question
+	fd := strings.Join([]string{subdomain, testDomain, ""}, ".")
+	txtRecords[strings.ToLower(fd)] = txtval
+	txtRecordsMutex.Unlock()
+
+	dns.HandleFunc(".", dnsHandler)
+	dnsServer := &dns.Server{
+		Addr: fmt.Sprintf("127.0.0.1:%d", dnsPort),
+		Net:  "tcp",
+	}
+	go func() {
+		err := dnsServer.ListenAndServe()
+		if err != nil {
+			fmt.Println(err)
+			return
 		}
 	}()
 
