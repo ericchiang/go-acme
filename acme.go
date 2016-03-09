@@ -2,6 +2,7 @@ package letsencrypt
 
 import (
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/json"
@@ -64,6 +65,13 @@ const (
 	boulderTermsPath      = "/terms"
 	boulderIssuerPath     = "/acme/issuer-cert"
 	boulderBuildIDPath    = "/build"
+)
+
+var (
+	// ErrUnsupportedRSABitLen reports whether an unrecognized RSA key size was used
+	ErrUnsupportedRSABitLen = errors.New("unsupported RSA bit length")
+	// ErrUnsupportedECDSACurve reports whether an unrecognized ECDSA curve was used
+	ErrUnsupportedECDSACurve = errors.New("unsupported ECDSA curve")
 )
 
 func newDefaultDirectory(baseURL *url.URL) directory {
@@ -420,19 +428,45 @@ func handleCertificateResponse(resp *http.Response) (*CertificateResponse, error
 func (c *Client) signObject(accountKey interface{}, v interface{}) (string, error) {
 	var (
 		signer jose.Signer
+		alg    jose.SignatureAlgorithm
 		err    error
 	)
+
 	switch accountKey := accountKey.(type) {
 	case *rsa.PrivateKey:
-		signer, err = jose.NewSigner(jose.RS256, accountKey)
+		modulus := accountKey.N
+		bitLen := modulus.BitLen()
+
+		switch bitLen {
+		case 2048:
+			alg = jose.RS256
+		case 3072:
+			alg = jose.RS384
+		case 4096:
+			alg = jose.RS512
+		default:
+			return "", ErrUnsupportedRSABitLen
+		}
 	case *ecdsa.PrivateKey:
-		signer, err = jose.NewSigner(jose.ES384, accountKey)
+		switch accountKey.Params() {
+		case elliptic.P256().Params():
+			alg = jose.ES256
+		case elliptic.P384().Params():
+			alg = jose.ES384
+		case elliptic.P521().Params():
+			alg = jose.ES512
+		default:
+			return "", ErrUnsupportedECDSACurve
+		}
 	default:
 		err = errors.New("acme: unsupported private key type")
 	}
+
+	signer, err = jose.NewSigner(alg, accountKey)
 	if err != nil {
 		return "", err
 	}
+
 	data, err := json.Marshal(v)
 	if err != nil {
 		return "", err
