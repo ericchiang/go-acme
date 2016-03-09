@@ -40,13 +40,13 @@ func TestRegister(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	reg.Contact = []string{"mailto:cert-admin@example.com", "tel:+12025551212"}
+	reg.Contact = []string{"mailto:cert-admin@example.com"}
 	updatedReg, err := cli.UpdateRegistration(priv, reg)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(updatedReg.Contact) != 2 {
-		t.Errorf("expected update to add two contacts, got %s", updatedReg.Contact)
+	if len(updatedReg.Contact) != 1 {
+		t.Errorf("expected update to add one contact, got %s", updatedReg.Contact)
 	}
 	recoveredReg, err := cli.NewRegistration(priv)
 	if err != nil {
