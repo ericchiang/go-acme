@@ -68,10 +68,10 @@ const (
 )
 
 var (
-	// ErrUnsupportedRSABitLen reports whether an unrecognized RSA key size was used
-	ErrUnsupportedRSABitLen = errors.New("unsupported RSA bit length")
-	// ErrUnsupportedECDSACurve reports whether an unrecognized ECDSA curve was used
-	ErrUnsupportedECDSACurve = errors.New("unsupported ECDSA curve")
+	// errUnsupportedRSABitLen reports whether an unrecognized RSA key size was used
+	errUnsupportedRSABitLen = errors.New("unsupported RSA bit length")
+	// errUnsupportedECDSACurve reports whether an unrecognized ECDSA curve was used
+	errUnsupportedECDSACurve = errors.New("unsupported ECDSA curve")
 )
 
 func newDefaultDirectory(baseURL *url.URL) directory {
@@ -440,12 +440,13 @@ func (c *Client) signObject(accountKey interface{}, v interface{}) (string, erro
 		switch bitLen {
 		case 2048:
 			alg = jose.RS256
-		case 3072:
-			alg = jose.RS384
-		case 4096:
-			alg = jose.RS512
+		// Not yet supported by LetsEncrypt's Boulder service: https://github.com/letsencrypt/boulder/issues/1592
+		// case 3072:
+		// 	alg = jose.RS384
+		// case 4096:
+		// 	alg = jose.RS512
 		default:
-			return "", ErrUnsupportedRSABitLen
+			return "", errUnsupportedRSABitLen
 		}
 	case *ecdsa.PrivateKey:
 		switch accountKey.Params() {
@@ -453,10 +454,11 @@ func (c *Client) signObject(accountKey interface{}, v interface{}) (string, erro
 			alg = jose.ES256
 		case elliptic.P384().Params():
 			alg = jose.ES384
-		case elliptic.P521().Params():
-			alg = jose.ES512
+		// Not yet supported by LetsEncrypt's Boulder service: https://github.com/letsencrypt/boulder/issues/1592
+		// case elliptic.P521().Params():
+		// 	alg = jose.ES512
 		default:
-			return "", ErrUnsupportedECDSACurve
+			return "", errUnsupportedECDSACurve
 		}
 	default:
 		err = errors.New("acme: unsupported private key type")
