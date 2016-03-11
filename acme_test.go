@@ -1,6 +1,8 @@
 package letsencrypt
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
@@ -9,6 +11,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -27,7 +30,61 @@ func TestNewClient(t *testing.T) {
 	}
 }
 
-func TestRegister(t *testing.T) {
+func TestRegistration(t *testing.T) {
+	tests := []struct {
+		keyType string
+		bitSize int
+		err     error
+	}{
+		{"ecdsa", 256, nil},
+		{"ecdsa", 384, nil},
+		//{"ecdsa", 512, nil},
+		{"rsa", 2048, nil},
+		//{"rsa", 3072, nil},
+		//{"rsa", 4096, nil},
+	}
+
+	cli, err := NewClient(testURL)
+	//cli, err := NewClient("https://acme-staging.api.letsencrypt.org/directory")
+	//cli, err := NewClient("https://acme-v01.api.letsencrypt.org/directory")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tt := range tests {
+		var priv interface{}
+		var err error
+
+		switch tt.keyType {
+		case "rsa":
+			priv, err = rsa.GenerateKey(rand.Reader, tt.bitSize)
+		case "ecdsa":
+			var curve elliptic.Curve
+			switch tt.bitSize {
+			case 256:
+				curve = elliptic.P256()
+			case 384:
+				curve = elliptic.P384()
+			case 512:
+				curve = elliptic.P521()
+			}
+			priv, err = ecdsa.GenerateKey(curve, rand.Reader)
+		}
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		_, err = cli.NewRegistration(priv)
+		if err != tt.err {
+			log.Printf("key type: %s\n", tt.keyType)
+			log.Printf("bit size: %d\n", tt.bitSize)
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestUpdateRegistration(t *testing.T) {
 	cli, err := NewClient(testURL)
 	if err != nil {
 		t.Fatal(err)
