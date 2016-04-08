@@ -3,7 +3,7 @@ package letsencrypt
 import (
 	"time"
 
-	"github.com/ericchiang/letsencrypt/Godeps/_workspace/src/github.com/square/go-jose"
+	"github.com/square/go-jose"
 )
 
 const (
