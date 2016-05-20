@@ -2,6 +2,8 @@
 
 [![GoDoc](https://godoc.org/github.com/ericchiang/letsencrypt?status.svg)](https://godoc.org/github.com/ericchiang/letsencrypt)
 
+__NOTE:__ If you're thinking about using this package, I would recommend looking at Russ Cox's [letsencrypt package](https://godoc.org/rsc.io/letsencrypt) first.
+
 ## About
 
 This is a client package for Let's Encrypt.
