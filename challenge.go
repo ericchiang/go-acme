@@ -102,7 +102,12 @@ func (chal Challenge) TLSSNI(accountKey interface{}) (map[string]*tls.Certificat
 	return certs, nil
 }
 
-// Not yet implemented
+// DNS returns the subdomain name and the TXT value you need to set for that
+// subdomain. The ACME server will make DNS TXT lookup on that subdomain and
+// verify that the value matches. Keep in mind that DNS TTL's might prevent
+// the lookup from working correctly the first few times and ChallengeReady
+// will continue to loop if the record is missing/invalid. It is recommended
+// that you set the record to the lowest TTL allowed by your provider.
 func (chal Challenge) DNS(accountKey interface{}) (subdomain, txt string, err error) {
 	if chal.Type != ChallengeDNS {
 		return "", "", fmt.Errorf("challenge type is %s not %s", chal.Type, ChallengeDNS)
