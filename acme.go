@@ -197,7 +197,10 @@ func (c *Client) registration(accountKey interface{}, reg Registration, resource
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusConflict && resource == resourceNewRegistration {
-		return c.registration(accountKey, Registration{}, resourceRegistration, resp.Header.Get("Location"))
+		// We must send our agreement in order to get a non-empty registration back
+		return c.registration(accountKey, Registration{
+			Agreement: c.Terms(),
+		}, resourceRegistration, resp.Header.Get("Location"))
 	}
 
 	statusExp := http.StatusCreated
