@@ -123,6 +123,12 @@ func (c *Client) Terms() string {
 // NewClient creates a client of a ACME server by querying the server's
 // resource directory and attempting to resolve the URL of the terms of service.
 func NewClient(directoryURL string) (*Client, error) {
+	return NewClientWithTransport(directoryURL, nil)
+}
+
+// NewClientWithTransport creates a client of a ACME server by querying the server's
+// resource directory and attempting to resolve the URL of the terms of service.
+func NewClientWithTransport(directoryURL string, t http.RoundTripper) (*Client, error) {
 	u, err := url.Parse(directoryURL)
 	if err != nil {
 		return nil, fmt.Errorf("could not parse URL %s: %v", directoryURL, err)
@@ -130,8 +136,7 @@ func NewClient(directoryURL string) (*Client, error) {
 	if u.Path == "" {
 		u.Path = boulderDirectoryPath
 	}
-	// TODO: make underlying transport configurable
-	nrt := newNonceRoundTripper(nil)
+	nrt := newNonceRoundTripper(t)
 
 	c := &Client{
 		client:      &http.Client{Transport: nrt},
