@@ -30,6 +30,13 @@ func TestNewClient(t *testing.T) {
 	}
 }
 
+func TestNewClientWithTransport(t *testing.T) {
+	rt := http.DefaultTransport
+	if _, err := NewClientWithTransport(testURL, rt); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestRegistration(t *testing.T) {
 	tests := []struct {
 		keyType string
