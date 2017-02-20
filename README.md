@@ -29,7 +29,7 @@ import (
     "github.com/ericchiang/letsencrypt"
 )
 
-var supportedChallengs = []string{
+var supportedChallenges = []string{
     letsencrypt.ChallengeHTTP,
     letsencrypt.ChallengeTLSSNI,
 }
@@ -78,7 +78,7 @@ func main() {
 }
 
 func newCSR() (*x509.CertificateRequest, *rsa.PrivateKey, error) {
-    certKey, err := rsa.GenerateKey(rand.Random, 4096)
+    certKey, err := rsa.GenerateKey(rand.Reader, 4096)
     if err != nil {
         return nil, nil, err
     }
