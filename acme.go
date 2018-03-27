@@ -405,7 +405,7 @@ func handleCertificateResponse(resp *http.Response) (*CertificateResponse, error
 	defer resp.Body.Close()
 
 	// Certificate is not yet available. Gather data and retry later
-	if len(body) == 0 {
+	if resp.StatusCode == http.StatusAccepted {
 		retryAfter, err := strconv.Atoi(resp.Header.Get("Retry-After"))
 		if err != nil {
 			return nil, fmt.Errorf("Error parsing retry-after header: %s", err)
