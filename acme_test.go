@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	testDomain = "example.org"
+	testDomain = "example.com"
 	testURL    = "http://localhost:4000/directory"
 )
 

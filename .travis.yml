@@ -1,6 +1,6 @@
 language: go
 go:
-  - 1.5.3
+  - 1.8
 script:
   - go test -race -v -bench=.
 notifications:
@@ -19,26 +19,30 @@ addons:
       - libffi-dev
       - ca-certificates
       - rsyslog
-  mariadb: "10.0"
+      - libltdl3-dev
+  mariadb: "10.1"
   hosts:
-    - example.org
+    - example.com
     - example
+    - boulder
+    - boulder-rabbitmq
+    - boulder-mysql
+env:
+  global:
+    - PATH=$HOME/bin:$PATH # protoc gets installed here
+    - GO15VENDOREXPERIMENT=1
 before_install:
   - git clone --depth=1 https://github.com/letsencrypt/boulder.git $HOME/gopath/src/github.com/letsencrypt/boulder
 before_script:
   - |
     # make required changes to boulder rules and start boulder
-    # boulder uses GOPATH to install goose so set that to a single value
     set -e
-    export ORIGGOPATH=$GOPATH
-    export GOPATH=$HOME/gopath
+    go get bitbucket.org/liamstask/goose/cmd/goose
     cd $GOPATH/src/github.com/letsencrypt/boulder
-    sed -i '/example.org\|localhost/d' cmd/policy-loader/base-rules.json
     ./test/setup.sh
     make
     ./start.py &
     BOUDLER_PID=$!
-    export GOPATH=$ORIGGOPATH
     cd $TRAVIS_BUILD_DIR
 after_script:
   - kill $BOUDLER_PID

@@ -181,20 +181,16 @@ if err := cli.ChallengeReady(accountKey, chal); err != nil {
 
 The test suite runs against an installation of Let's Encrypt's [boulder](https://github.com/letsencrypt/boulder). Follow instructions in that repo for running in development mode on `127.0.0.1:4000`.
 
-Boulder will not issue cerficiates for non-public domains (e.g. `.localdomain`). In addition it keeps a blacklist of domains to not issue certificates for.
-
-Before running boulder, you must edit the base blacklist to allow `example.org` and `localhost.localdomain`.
-
 ```
 $GOPATH$src/github.com/letsencrypt/boulder/cmd/policy-loader/base-rules.json
 ```
 
-In order to masqurade as a public domain, the tests require adding an entry to `/etc/hosts` to manually change Boulder's DNS resolution. Specifically, have `example.org` resolve to `127.0.0.1`.
+In order to masqurade as a public domain, the tests require adding an entry to `/etc/hosts` to manually change Boulder's DNS resolution. Specifically, have `example.com` resolve to `127.0.0.1`.
 
 ```
 $ sudo cat /etc/hosts
 127.0.0.1       localhost.localdomain localhost
-127.0.0.1       example.org example
+127.0.0.1       example.com example
 ::1     localhost6.localdomain6 localhost6
 ```
 
